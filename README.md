@@ -32,7 +32,13 @@ whereas in
 
 the last 'C' is the same as the first 'C' with the length of 1 second
 
-## adding stroke (example)
+## adding strokes (example)
 `my_score.add_stroke(0, type='minor', dur=400, step_div=8)`
 
 minor C chord with duration of 4 * time_unit; gap between each note is 1/8 of time_unit
+
+## waiting for silence (example)
+
+`my_score.wait_finish()`
+
+wait for all notes to be played

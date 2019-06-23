@@ -75,6 +75,22 @@ class Genner:
         else:
             self.score[self.cur_melody] += self.get_melody_from_string_list(melody_string_list)
             self.default_divisor = 1
+    
+    def wait_finish(self):
+        last_finish = 0
+        now = 0
+        for this_note in self.score[self.cur_melody]:
+            ending_at = now + ((64 / this_note["length"]) if this_note["length"] < 100 else (64 * this_note["length"] / 100) )\
+                + this_note["linger"]
+            if ending_at > last_finish:
+                last_finish = ending_at
+                linger_last_fin = this_note["linger"]
+            now = ending_at - this_note["linger"]
+
+        if len(self.score) > 0:
+            self.score[self.cur_melody] += [{"note_num":0, "octave":0,
+                "length": (64 / linger_last_fin) if linger_last_fin < 64 else linger_last_fin * 100 / 64,
+                "linger":0, "attack":0}]
 
     def get_note(self, note_num):
         for note_name in notes[0]:
@@ -129,6 +145,9 @@ class Genner:
         for this_melody in self.score:
             start_time = 0.0
             for this_note in this_melody:
+                if this_note["octave"] == 0:
+                    start_time += self.time_unit * (this_note["length"] / 100)
+                    continue
                 cs_string, start_time = self.get_cs_line(this_note["octave"], this_note["note_num"], time=start_time,
                     dur=this_note["length"], linger = this_note["linger"], attack=this_note["attack"])
                 with open("cs.txt", "a") as file:
@@ -189,5 +208,15 @@ if __name__ == "__main__":
     my_score.set_attack(0)
     #my_score.add_melody(['c'])
     #my_score.add_melody(['d', 'c', 'e200', 'f400', 'e', 'd200'], append=True)
-    my_score.add_stroke(0, type='minor', dur=400, step_div=8)
+    my_score.add_stroke(0, type='major', dur=400, step_div=8)
+    my_score.set_octave(8)
+    my_score.wait_finish()
+    my_score.add_stroke(5, type='major', dur=400, step_div=8)
+    my_score.set_octave(8)
+    my_score.wait_finish()
+    my_score.add_stroke(7, type='major', dur=400, step_div=8)
+    my_score.set_octave(8)
+    my_score.wait_finish()
+    my_score.add_stroke(0, type='major', dur=400, step_div=8)
+
     my_score.get_cs()
