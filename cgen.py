@@ -10,29 +10,28 @@ harmony_type = {'major':0, 'minor':1}
 class Genner:
     def __init__(self, speed, octave):
         self.score = []
-        self.time_unit = 60 / speed
+        self.time_unit_in_sec = 60 / speed
         self.octave_cur = octave
         self.cur_melody = -1
-        self.default_divisor = 1
+        self.default_len = 100
         self.inst = []
-        self.attck_divisor = 0
+        self.attck_cur = 0
         self.linger_cur = 8 #64 is one unit
         self.linger_unit = 0 #overrides linger_div_cur if positive
         self.amp_cur = .7
     
-    def set_default_length(self, divisor):
-        if divisor > 0 and divisor < 128:
-            self.default_divisor = divisor
+    def set_default_length(self, length):
+        self.default_len = length
     
     def set_amp_cur(self, amp):
         if not amp > 1 and not amp < 0:
             self.amp_cur = amp
     
-    def set_current_linger(self, divisor):
-        self.linger_cur = divisor
+    def set_current_linger(self, length):
+        self.linger_cur = length
     
-    def set_attack(self, divisor):
-        self.attck_divisor = divisor
+    def set_attack(self, val):
+        self.attck_cur = val
     
     def set_octave(self, oct):
         self.octave_cur = oct
@@ -43,19 +42,19 @@ class Genner:
         for this_note_s in mstr:
             half_tone = '#' if '#' in this_note_s else ('_' if '_' in this_note_s else '')
             this_note = this_note_s[:1] + half_tone
-            print("ERROR thisnotes:", this_note_s)
-            this_len_div = int(this_note_s.split(half_tone)[1]) if not half_tone == '' \
-                else (int(this_note_s[1:]) if len(this_note_s) > 1 else self.default_divisor)
-            print("len divisor", this_len_div, '"'+half_tone+'"', 'default_div:', self.default_divisor)
-            if this_len_div > 100:
-                this_len_div = 1 / (this_len_div / 100)
-            this_len = self.time_unit / (1 if this_len_div == 0 else this_len_div)
+            print("thisnotes:", this_note_s)
+            this_len = (int(this_note_s.split(half_tone)[1]) if len(this_note_s.split(half_tone)[1]) > 0 else self.default_len) if not half_tone == '' \
+                else (int(this_note_s[1:]) if len(this_note_s) > 1 else self.default_len)
+            print("len ", this_len, '"'+half_tone+'"', 'default:', self.default_len)
+            # if this_len_div > 100:
+            #     this_len_div = 1 / (this_len_div / 100)
+            # this_len = self.time_unit_in_sec / (1 if this_len_div == 0 else this_len_div)
             near_note = True
             note_num = notes[0].get(this_note, -1)
-            if note_num < 0:
+            if note_num < 0: #if capital note
                 note_num = notes[1].get(this_note, -1)
                 near_note = False
-            if last_note_num > -1:
+            if last_note_num > -1: #if not first note in this addition
                 if not note_num < last_note_num:
                     if note_num - last_note_num > 6:
                         self.octave_cur -= 1 if near_note else 0
@@ -68,10 +67,10 @@ class Genner:
                         self.octave_cur += 0 if near_note else 1
             melody.append({"note_num":note_num, "octave":self.octave_cur, "length": this_len,
                 "linger":self.linger_cur, "amp":self.amp_cur,
-                "attack":(self.time_unit/self.attck_divisor) if self.attck_divisor > 0 else 0})
+                "attack":self.attck_cur})
             print('adding note.......', "note_num", note_num, "octave", self.octave_cur, "length", this_len,
                 "linger",self.linger_cur,
-                "attack",(self.time_unit/self.attck_divisor) if self.attck_divisor > 0 else 0)
+                "attack",self.attck_cur)
         return melody
     
     def add_melody(self, melody_string_list, append=True):
@@ -79,7 +78,7 @@ class Genner:
             self.score.append(self.get_melody_from_string_list(melody_string_list))
         else:
             self.score[self.cur_melody] += self.get_melody_from_string_list(melody_string_list)
-            self.default_divisor = 1
+            self.default_len = 100
     
     def wait_finish(self):
         last_finish = 0
@@ -103,11 +102,22 @@ class Genner:
                 return note_name
         return 'n'
     
-    def add_stroke(self, start, type='major', dir='down', dur = -1, step_div=-1, s_dir='down'):
-        if dur < 0:
+    def getmult(self, val, multiplier):
+        return (val // 100) * multiplier * 100 + (((val % 100) * multiplier) // 64) * 100 + (((val %100) * multiplier) % 64)
+    
+    def getdiff(self, larger, smaller):
+        frac = larger % 100 - smaller % 100
+        whole = larger // 100 - smaller // 100
+        if frac < 0:
+            frac += 64
+            whole -= 1
+        return whole * 100 + frac
+    
+    def add_stroke(self, start, type='major', dir='down', dur = -1, step_len=-1, s_dir='down'):
+        if dur < 0: #if duration not set
             dur = 200
-        if not step_div > 0:
-            step_div = 4
+        if not step_len > 0: #if step_div not set
+            step_len = 16
         cur_step = 0
         nsteps = []
         if type == 'major':
@@ -125,9 +135,9 @@ class Genner:
         this_note = start
         for this_step in nsteps:
             this_note_notation = self.get_note(this_note)
-            this_note_dur = step_div
-            this_linger = int(dur * 64 / 100 - (cur_step + 1) * 64 / step_div)
-            print(this_note_dur, cur_step, step_div)
+            this_note_dur = step_len
+            this_linger = self.getdiff(dur, self.getmult(step_len ,cur_step))
+            print("STROKE dur, curstep, stepdiv",this_note_dur, cur_step, step_len, this_linger)
             mstring=this_note_notation + str(int(this_note_dur))
             this_note += this_step
             
@@ -161,29 +171,35 @@ class Genner:
         for this_melody in self.score:
             start_time = 0.0
             for this_note in this_melody:
-                if this_note["octave"] == 0:
-                    start_time += self.time_unit * (this_note["length"] / 100)
+                if this_note["octave"] == 0: #silent period
+                    start_time += self.time_unit_in_sec * (this_note["length"] // 100) + self.time_unit_in_sec * (this_note["length"] % 100 / 64)
                     continue
+                #get cs string and the next start time
+                duration = self.getsec(this_note["length"])
                 cs_string, start_time = self.get_cs_line(this_note["octave"], this_note["note_num"], time=start_time,
-                    dur=this_note["length"], linger = this_note["linger"], attack=this_note["attack"], amp = this_note.get("amp", self.amp_cur))
+                    dur=duration, linger = this_note["linger"], attack=this_note["attack"], amp = this_note.get("amp", self.amp_cur))
                 with open("cs.txt", "a") as file:
                     file.write(cs_string+'\n')
         with open("cs.txt", "a") as file:
             file.write("</CsScore>\n")
             file.write("</CsoundSynthesizer>")
 
-    
+    def getsec(self, tt):
+        return self.time_unit_in_sec * ((tt // 100) + (tt % 100) / 64)
+
     def get_cs_line(self, octave, note_num, time=0.0, dur=-1, linger = -1, attack = -1, amp = -1):
         if dur < 0:
-            dur = self.time_unit / self.default_divisor
+            dur = self.getsec(self.default_len)
         if linger < 0:
             linger = self.linger_cur
-        if attack < 0:
-            attack = (self.time_unit/self.attck_divisor) if self.attck_divisor > 0 else 0
+        attack_in_sec = self.time_unit_in_sec * ((attack if attack > -1 else self.attck_cur) // 100)\
+             + self.time_unit_in_sec * ((attack if attack > -1 else self.attck_cur) % 100 / 64)
         if amp < 0:
             amp = self.amp_cur
-        return "i "+ str(octave) + format(note_num, '02d') + ' ' + str(time) + ' ' + str(dur + self.time_unit * linger/64) + ' ' + str(amp) + ' ' +\
-            str(attack), time + dur
+        rstr = "i "+ str(octave) + format(note_num, '02d') + ' ' + str(time) + ' ' + str(dur + self.getsec(linger)) + ' ' + str(amp) + ' ' +\
+            str(attack_in_sec), time + dur
+        print("CSLINE:",dur, linger, rstr)
+        return rstr
     
     def get_heading_lines(self, nch=1):
         with open("cs.txt", "w") as file: # Use file to refer to the file object
@@ -220,27 +236,36 @@ if __name__ == "__main__":
     my_score = Genner(120, 8)
     my_score.get_heading_lines()
     my_score.get_instr(704, 1001, rel=.3)
-    my_score.set_attack(4)
-    my_score.add_melody(['g200','g200','a','a','b','C','d'])
-    my_score.set_default_length(.1)
-    my_score.set_attack(0)
-    my_score.add_melody(['c'])
-    my_score.add_melody(['d', 'c', 'e200', 'f400', 'e', 'd200'], append=True)
+    # my_score.set_attack(4)
+    # my_score.add_melody(['g200','g200','a','a','b','C','d'])
+    # my_score.set_default_length(.1)
+    # my_score.set_attack(4)
+    # my_score.add_melody(['c'])
+    # my_score.add_melody(['d', 'c', 'e200', 'f400', 'e', 'd200'], append=True)
+    # my_score.set_attack(32)
+    # my_score.set_amp_cur(.6)
+    # my_score.add_stroke(0, type='major', dur=400, step_div=64)
+    # my_score.set_octave(8)
+    # my_score.wait_finish()
+    # my_score.add_stroke(5, type='major', dur=400, step_div=64)
+    # my_score.set_octave(8)
+    # my_score.wait_finish()
+    # my_score.add_stroke(7, type='major', dur=400, step_div=2)
+    # my_score.set_octave(8)
+    # my_score.wait_finish()
+    # my_score.set_amp_cur(.3)
+    # my_score.add_stroke(0, type='major', dur=400, step_div=2)
+    # my_score.set_octave(8)
+    # my_score.set_amp_cur(.6)
+    # my_score.add_stroke(0, type='major', dur=400, step_div=2, s_dir='up')
+    
+   
+    my_score.add_melody(['c200','D100','e100','g100','a_100','g100'])
     my_score.set_attack(32)
-    my_score.set_amp_cur(.6)
-    my_score.add_stroke(0, type='major', dur=400, step_div=64)
-    my_score.set_octave(8)
+    my_score.set_amp_cur(.9)
+    my_score.add_melody(['c200','D100','e100','g100','a_100','g100'])
+    my_score.set_attack(1)
+    my_score.add_stroke(0, dur=100, step_len=2)
     my_score.wait_finish()
-    my_score.add_stroke(5, type='major', dur=400, step_div=64)
-    my_score.set_octave(8)
-    my_score.wait_finish()
-    my_score.add_stroke(7, type='major', dur=400, step_div=2)
-    my_score.set_octave(8)
-    my_score.wait_finish()
-    my_score.set_amp_cur(.3)
-    my_score.add_stroke(0, type='major', dur=400, step_div=2)
-    my_score.set_octave(8)
-    my_score.set_amp_cur(.6)
-    my_score.add_stroke(0, type='major', dur=400, step_div=2, s_dir='up')
-
+    my_score.add_stroke(0, dur=400, step_len=2)
     my_score.get_cs()
