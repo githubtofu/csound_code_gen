@@ -84,16 +84,19 @@ class Genner:
         last_finish = 0
         now = 0
         for this_note in self.score[self.cur_melody]:
-            ending_at = now + ((64 / this_note["length"]) if this_note["length"] < 100 else (64 * this_note["length"] / 100) )\
-                + this_note["linger"]
+            now = self.getsum(now, this_note["length"])
+            ending_at = self.getsum(now, this_note["linger"])
+            #  + ((64 / this_note["length"]) if this_note["length"] < 100 else (64 * this_note["length"] / 100) )\
+            #     + this_note["linger"]
             if ending_at > last_finish:
                 last_finish = ending_at
                 linger_last_fin = this_note["linger"]
-            now = ending_at - this_note["linger"]
+            # now = ending_at - this_note["linger"]
 
         if len(self.score) > 0:
             self.score[self.cur_melody] += [{"note_num":0, "octave":0,
-                "length": (64 / linger_last_fin) if linger_last_fin < 64 else linger_last_fin * 100 / 64,
+                # "length": (64 / linger_last_fin) if linger_last_fin < 64 else linger_last_fin * 100 / 64,
+                "length":self.getdiff(last_finish, now),
                 "linger":0, "attack":0}]
 
     def get_note(self, note_num):
@@ -111,6 +114,14 @@ class Genner:
         if frac < 0:
             frac += 64
             whole -= 1
+        return whole * 100 + frac
+    
+    def getsum(self, val1, val2):
+        frac = val1 % 100 + val2 % 100
+        whole = val1 // 100 + val2 // 100
+        if frac > 63:
+            frac -= 64
+            whole += 1
         return whole * 100 + frac
     
     def add_stroke(self, start, type='major', dir='down', dur = -1, step_len=-1, s_dir='down'):
@@ -143,6 +154,7 @@ class Genner:
             
             self.set_current_linger(this_linger)
             self.add_melody([mstring])
+            print("ALL melody upto current:", self.score)
 
             if this_note > 11:
                 this_note -= 12
@@ -172,7 +184,7 @@ class Genner:
             start_time = 0.0
             for this_note in this_melody:
                 if this_note["octave"] == 0: #silent period
-                    start_time += self.time_unit_in_sec * (this_note["length"] // 100) + self.time_unit_in_sec * (this_note["length"] % 100 / 64)
+                    start_time += self.getsec(this_note["length"])
                     continue
                 #get cs string and the next start time
                 duration = self.getsec(this_note["length"])
@@ -260,11 +272,11 @@ if __name__ == "__main__":
     # my_score.add_stroke(0, type='major', dur=400, step_div=2, s_dir='up')
     
    
-    my_score.add_melody(['c200','D100','e100','g100','a_100','g100'])
-    my_score.set_attack(32)
-    my_score.set_amp_cur(.9)
-    my_score.add_melody(['c200','D100','e100','g100','a_100','g100'])
-    my_score.set_attack(1)
+    # my_score.add_melody(['c200','D100','e100','g100','a_100','g100'])
+    # my_score.set_attack(32)
+    # my_score.set_amp_cur(.9)
+    # my_score.add_melody(['c200','D100','e100','g100','a_100','g100'])
+    # my_score.set_attack(1)
     my_score.add_stroke(0, dur=100, step_len=2)
     my_score.wait_finish()
     my_score.add_stroke(0, dur=400, step_len=2)
