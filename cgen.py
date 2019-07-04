@@ -125,8 +125,7 @@ class Genner:
         return whole * 100 + frac
     
     def add_stroke(self, start, type='major', dir='down', dur = -1, step_len=-1, s_dir='down'):
-        if dur < 0: #if duration not set
-            dur = 200
+        stroke_duration = 200 if dur < 0 else dur
         if not step_len > 0: #if step_div not set
             step_len = 16
         cur_step = 0
@@ -147,7 +146,7 @@ class Genner:
         for this_step in nsteps:
             this_note_notation = self.get_note(this_note)
             this_note_dur = step_len
-            this_linger = self.getdiff(dur, self.getmult(step_len ,cur_step))
+            this_linger = self.getdiff(stroke_duration, self.getmult(step_len ,cur_step))
             print("STROKE dur, curstep, stepdiv",this_note_dur, cur_step, step_len, this_linger)
             mstring=this_note_notation + str(int(this_note_dur))
             this_note += this_step
@@ -244,40 +243,25 @@ class Genner:
                     break
             file.write("</CsInstruments>\n\n")
 
+def addstrokeseries(strokes, duration=100, steplen=8, dir="down", wait=True, octave=8):
+    my_score.set_octave(octave)
+    ind = 0
+    for this_stroke in strokes:
+        if ind == len(strokes) -1:
+            d = duration * 4
+        else:
+            d = duration
+        my_score.add_stroke(this_stroke, dur=d, step_len=steplen, s_dir=dir)
+        if wait:
+            my_score.wait_finish()
+        my_score.set_octave(octave)
+
 if __name__ == "__main__":
     my_score = Genner(120, 8)
     my_score.get_heading_lines()
     my_score.get_instr(704, 1001, rel=.3)
-    # my_score.set_attack(4)
-    # my_score.add_melody(['g200','g200','a','a','b','C','d'])
-    # my_score.set_default_length(.1)
-    # my_score.set_attack(4)
-    # my_score.add_melody(['c'])
-    # my_score.add_melody(['d', 'c', 'e200', 'f400', 'e', 'd200'], append=True)
-    # my_score.set_attack(32)
-    # my_score.set_amp_cur(.6)
-    # my_score.add_stroke(0, type='major', dur=400, step_div=64)
-    # my_score.set_octave(8)
-    # my_score.wait_finish()
-    # my_score.add_stroke(5, type='major', dur=400, step_div=64)
-    # my_score.set_octave(8)
-    # my_score.wait_finish()
-    # my_score.add_stroke(7, type='major', dur=400, step_div=2)
-    # my_score.set_octave(8)
-    # my_score.wait_finish()
-    # my_score.set_amp_cur(.3)
-    # my_score.add_stroke(0, type='major', dur=400, step_div=2)
-    # my_score.set_octave(8)
-    # my_score.set_amp_cur(.6)
-    # my_score.add_stroke(0, type='major', dur=400, step_div=2, s_dir='up')
-    
-   
-    # my_score.add_melody(['c200','D100','e100','g100','a_100','g100'])
-    # my_score.set_attack(32)
-    # my_score.set_amp_cur(.9)
-    # my_score.add_melody(['c200','D100','e100','g100','a_100','g100'])
-    # my_score.set_attack(1)
-    my_score.add_stroke(0, dur=100, step_len=2)
-    my_score.wait_finish()
-    my_score.add_stroke(0, dur=400, step_len=2)
+
+    addstrokeseries([0,3,7,0], duration=400, steplen=100)
+
     my_score.get_cs()
+
